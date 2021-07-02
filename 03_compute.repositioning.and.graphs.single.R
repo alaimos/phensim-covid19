@@ -1,4 +1,5 @@
 library(ggplot2)
+library(dplyr)
 
 ### List of important pathways to plot in the small figure
 imp.pathways   <- c("path:hsa04668","path:hsa04630","path:hsa04060","path:hsa04062","path:hsa04620",
@@ -84,22 +85,26 @@ n.tot        <- 20
 df.data.all <- data.frame(name=drugs.names, Correlation=0, row.names = drugs)
 
 for (drug in drugs) {
+    cat(drug,"\n")
     dir.create(paste0("results/repositioning/details/",drug,"/"), recursive = TRUE)
     inf.data  <- read.phensim(sprintf(infected.base, cell.line), NULL)
     drug.data <- read.phensim(sprintf(drugs.base, drug, drug.cell.line), NULL)
+
     pcorr <- na.omit(sapply(intersect(names(inf.data$ep.by.pa), names(drug.data$ep.by.pa)), function(pp) {
         return (partial.corr(pp))
     }))
+
     ocorr <- na.omit(sapply(intersect(names(inf.data$ep.by.pa), names(drug.data$ep.by.pa)), function(pp) {
         a <- na.omit(inf.data$ep.by.pa[[pp]])
         b <- na.omit(drug.data$ep.by.pa[[pp]])
         c <- intersect(names(a),names(b))
         return (cor(a[c], b[c], method = "pearson"))
     }))
+
     df.data    <- data.frame(pathway=names(pcorr), name=inf.data$pn[names(pcorr)], Correlation=unname(pcorr))
     df.data.ep <- df.data[order(df.data$Correlation),]
     df.data.all[drug, "Correlation"] <- sum(df.data$Correlation)
-    
+
     tmp.neg <- df.data.ep[df.data.ep$Correlation < 0, ]
     tmp.neg <- tmp.neg[order(tmp.neg$Correlation, decreasing = FALSE),]
     tmp.pos <- df.data.ep[df.data.ep$Correlation > 0, ]
@@ -114,6 +119,12 @@ for (drug in drugs) {
     df.data.ep.filt <- df.data.ep.filt[order(df.data.ep.filt$Correlation),]
     important.pathways <- df.data.ep[df.data.ep$pathway %in% imp.pathways, "name"]
 
+    df.data.ep <- df.data.ep[,c("name", "Correlation")] %>% group_by(name) %>% summarise_all("sum")
+    qqq <- quantile(abs(df.data.ep$Correlation), 0.85)
+    others<- sum(df.data.ep[abs(df.data.ep$Correlation) <= qqq,]$Correlation)
+    df.data.ep <- df.data.ep[abs(df.data.ep$Correlation) > qqq,]
+    df.data.ep <- rbind(df.data.ep, data.frame(name="Other pathways", Correlation=others))
+    
     ppl <- ggplot(df.data.ep, aes(x = reorder(name, Correlation), y = Correlation)) +
         geom_col(aes(fill=Correlation)) +
         scale_fill_gradient2(low = "blue", mid="gray", high = "orange", midpoint = 0) +
@@ -129,7 +140,7 @@ for (drug in drugs) {
         theme_light() + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.border = element_blank(),
                               axis.text.x = element_text(size = 10, angle = 300, hjust = 0, vjust = 0.3),
                               axis.title.x=element_blank())
-    ggsave(filename = paste0("results/repositioning/details/",drug,"/",cell.line,"_with_titles.png"), plot = ppl, width = 100, height = 20, units = "cm", dpi=600)
+    ggsave(filename = paste0("results/repositioning/details/",drug,"/",cell.line,"_with_titles.png"), plot = ppl, width = 100, height = 20, units = "cm", dpi=600, limitsize = FALSE)
     
     ppl <- ggplot(df.data.ep.filt, aes(x = reorder(name, Correlation), y = Correlation)) +
         geom_col(aes(fill=Correlation)) +
@@ -139,12 +150,12 @@ for (drug in drugs) {
                               axis.text.x = element_text(size = 16, angle = 290, hjust = 0, vjust = 0.3,face=label.bold(df.data.ep.filt$name, important.pathways)),
                               axis.title.x=element_blank())
     ## These lines are used to make paper figures that have the same y axis so we can line them up
-    # if (drug == "Methylpred" && cell.line == "A549-ACE2_MOI_0.2") {
-    #     MY.YLIM <- range(df.data.ep.filt$Correlation)
-    # }
-    # if (drug == "Methylpred" && cell.line == "A549-ACE2_MOI_2") {
-    #     ppl <- ppl + ylim(c(MY.YLIM))
-    # }
+    if (drug == "Methylpred" && cell.line == "A549-ACE2_MOI_0.2") {
+        MY.YLIM <- range(df.data.ep.filt$Correlation)
+    }
+    if (drug == "Methylpred" && cell.line == "A549-ACE2_MOI_2") {
+        ppl <- ppl + ylim(c(MY.YLIM))
+    }
     ggsave(filename = paste0("results/repositioning/details/",drug,"/",cell.line,"_top_and_important.png"), plot = ppl, width = 30, height = 30, units = "cm", dpi=600)
 }
 

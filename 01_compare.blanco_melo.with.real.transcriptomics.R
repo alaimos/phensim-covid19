@@ -87,4 +87,4 @@ for (i in infected.cell.lines) {
 
 }
 
-write.xlsx(mtx.results, file = FINAL.OUTPUT.FILE, col.names = TRUE, row.names = TRUE)
+write.xlsx(data.frame(mtx.results), file = FINAL.OUTPUT.FILE, col.names = TRUE, row.names = TRUE)

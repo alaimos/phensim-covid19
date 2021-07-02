@@ -63,4 +63,4 @@ for (i in infected.cell.lines) {
     rm(list = setdiff(ls(), list.of.all.vars))    
 
 }
-write.xlsx(mtx.results, file = FINAL.OUTPUT.FILE, col.names = TRUE, row.names = TRUE)
+write.xlsx(data.frame(mtx.results), file = FINAL.OUTPUT.FILE, col.names = TRUE, row.names = TRUE)
